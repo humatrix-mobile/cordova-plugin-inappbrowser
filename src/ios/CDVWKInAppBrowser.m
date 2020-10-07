@@ -73,7 +73,6 @@ static CDVWKInAppBrowser* instance = nil;
         NSLog(@"IAB.close() called but it was already closed.");
         return;
     }
-    
     // Things are cleaned up in browserExit.
     [self.inAppBrowserViewController close];
 }
@@ -257,8 +256,31 @@ static CDVWKInAppBrowser* instance = nil;
     
     [self.inAppBrowserViewController navigateTo:url];
     if (!browserOptions.hidden) {
-        [self show:nil withNoAnimate:browserOptions.hidden];
+        NSString* type = [browserOptions.rendertype uppercaseString];
+        if([type isEqualToString:@"POSITION"]) {
+            [self appendToWebview:nil :browserOptions];
+        }else{
+            [self show:nil withNoAnimate:browserOptions.hidden];
+        }
     }
+}
+
+- (void)changePosition:(CDVInvokedUrlCommand*)command{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString* options = [command argumentAtIndex:0 withDefault:@"" andClass:[NSString class]];
+        CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
+        
+        CGFloat statusBarHeight = [self getStatusBarOffset];
+        CGFloat x = (CGFloat)[browserOptions.x floatValue];
+        CGFloat y = (CGFloat)[browserOptions.y floatValue];
+        CGFloat width = (CGFloat)[browserOptions.width floatValue] == 0 ? self.viewController.view.frame.size.width : [browserOptions.width floatValue];
+        CGFloat height = (CGFloat)[browserOptions.height floatValue] == 0 ? self.viewController.view.frame.size.height : [browserOptions.height floatValue];
+
+        y += statusBarHeight;
+        height -= statusBarHeight;
+        
+        self.inAppBrowserViewController.view.frame = CGRectMake(x, y, width, height);
+    });
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command{
@@ -316,6 +338,12 @@ static CDVWKInAppBrowser* instance = nil;
             [tmpController presentViewController:nav animated:!noAnimate completion:nil];
         }
     });
+}
+
+- (void)appendToWebview:(CDVInvokedUrlCommand*)command :(CDVInAppBrowserOptions*)browserOptions {
+    
+    //[self.viewController addChildViewController:self.inAppBrowserViewController];
+    [self.webView.superview insertSubview:self.inAppBrowserViewController.view aboveSubview:self.webView];
 }
 
 - (void)hide:(CDVInvokedUrlCommand*)command
@@ -689,6 +717,10 @@ static CDVWKInAppBrowser* instance = nil;
     _previousStatusBarStyle = -1; // this value was reset before reapplying it. caused statusbar to stay black on ios7
 }
 
+- (float) getStatusBarOffset {
+    return (float) IsAtLeastiOSVersion(@"7.0") ? [[UIApplication sharedApplication] statusBarFrame].size.height : 0.0;
+}
+
 @end //CDVWKInAppBrowser
 
 #pragma mark CDVWKInAppBrowserViewController
@@ -699,13 +731,20 @@ static CDVWKInAppBrowser* instance = nil;
 
 CGFloat lastReducedStatusBarHeight = 0.0;
 BOOL isExiting = FALSE;
-
+BOOL isPosition = FALSE;
 - (id)initWithBrowserOptions: (CDVInAppBrowserOptions*) browserOptions andSettings:(NSDictionary *)settings
 {
     self = [super init];
     if (self != nil) {
         _browserOptions = browserOptions;
         _settings = settings;
+        
+        if([self getIsPositionWith:browserOptions]){
+            isPosition = TRUE;
+        }else{
+            isPosition = FALSE;
+        }
+        
         self.webViewUIDelegate = [[CDVWKInAppBrowserUIDelegate alloc] initWithTitle:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"]];
         [self.webViewUIDelegate setViewController:self];
         
@@ -717,6 +756,23 @@ BOOL isExiting = FALSE;
 
 -(void)dealloc {
     //NSLog(@"dealloc");
+}
+
+-(BOOL) getIsPositionWith: (CDVInAppBrowserOptions*) browserOptions{
+    BOOL result = FALSE;
+    
+    @try {
+        NSString* type = [_browserOptions.rendertype == nil ? @"" : _browserOptions.rendertype uppercaseString];
+        
+        if([type isEqualToString:@"POSITION"]) {
+            result = TRUE;
+        }
+    }
+    @catch (NSException *exception) {
+        result = FALSE;
+    }
+    
+    return  result;
 }
 
 - (void)createViews
@@ -898,7 +954,11 @@ BOOL isExiting = FALSE;
     self.view.backgroundColor = [UIColor clearColor];
     [self.view addSubview:self.toolbar];
     [self.view addSubview:self.addressLabel];
-    [self.view addSubview:self.spinner];
+    
+    
+    if(!isPosition) {
+        [self.view addSubview:self.spinner];
+    }
 }
 
 - (id)settingForKey:(NSString*)key
@@ -1064,19 +1124,32 @@ BOOL isExiting = FALSE;
 
 - (void)close
 {
+
     self.currentURL = nil;
     
-    __weak UIViewController* weakSelf = self;
-    
-    // Run later to avoid the "took a long time" log message.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        isExiting = TRUE;
-        if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
-            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
-        } else {
-            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
-        }
-    });
+    if(isPosition) {
+        // Run later to avoid the "took a long time" log message.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            isExiting = TRUE;
+            if(self != nil) {
+                [self.view removeFromSuperview];
+                [self removeFromParentViewController];
+            }
+        });
+    }
+    else{
+        __weak UIViewController* weakSelf = self;
+        
+        // Run later to avoid the "took a long time" log message.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            isExiting = TRUE;
+            if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
+                [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
+            } else {
+                [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
+            }
+        });
+    }
 }
 
 - (void)navigateTo:(NSURL*)url
@@ -1101,7 +1174,14 @@ BOOL isExiting = FALSE;
 
 - (void)viewWillAppear:(BOOL)animated
 {
-    [self rePositionViews];
+    
+    
+    if(isPosition) {
+        [self rePositionViewsWithCustom];
+    }
+    else{
+        [self rePositionViews];
+    }
     
     [super viewWillAppear:animated];
 }
@@ -1124,8 +1204,7 @@ BOOL isExiting = FALSE;
     viewBounds.origin.y = statusBarHeight;
     
     // account for web view height portion that may have been reduced by a previous call to this method
-    viewBounds.size.height = viewBounds.size.height - statusBarHeight + lastReducedStatusBarHeight;
-    lastReducedStatusBarHeight = statusBarHeight;
+    viewBounds.size.height = viewBounds.size.height - statusBarHeight;
     
     if ((_browserOptions.toolbar) && ([_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop])) {
         // if we have to display the toolbar on top of the web view, we need to account for its height
@@ -1134,6 +1213,20 @@ BOOL isExiting = FALSE;
     }
     
     self.webView.frame = viewBounds;
+}
+
+- (void) rePositionViewsWithCustom {
+    
+    CGFloat statusBarHeight = [self getStatusBarOffset];
+    CGFloat x = (CGFloat)[_browserOptions.x floatValue];
+    CGFloat y = (CGFloat)[_browserOptions.y floatValue];
+    CGFloat width = (CGFloat)[_browserOptions.width floatValue] == 0 ? self.parentViewController.view.frame.size.width : [_browserOptions.width floatValue];
+    CGFloat height = (CGFloat)[_browserOptions.height floatValue] == 0 ? self.parentViewController.view.frame.size.height : [_browserOptions.height floatValue];
+    
+    y += statusBarHeight;
+    height -= statusBarHeight;
+    
+    self.view.frame = CGRectMake(x, y, width, height);
 }
 
 // Helper function to convert hex color string to UIColor
@@ -1167,6 +1260,8 @@ BOOL isExiting = FALSE;
 
 - (void)webView:(WKWebView *)theWebView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 {
+
+
     NSURL *url = navigationAction.request.URL;
     NSURL *mainDocumentURL = navigationAction.request.mainDocumentURL;
     

@@ -45,6 +45,12 @@
 @property (nonatomic, assign) BOOL disallowoverscroll;
 @property (nonatomic, copy) NSString* beforeload;
 
+@property (nonatomic, assign) NSString* x;
+@property (nonatomic, assign) NSString* y;
+@property (nonatomic, assign) NSString* width;
+@property (nonatomic, assign) NSString* height;
+@property (nonatomic, assign) NSString* rendertype;
+
 + (CDVInAppBrowserOptions*)parseOptions:(NSString*)options;
 
 @end
