@@ -266,21 +266,8 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 - (void)changePosition:(CDVInvokedUrlCommand*)command{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString* options = [command argumentAtIndex:0 withDefault:@"" andClass:[NSString class]];
-        CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
-        
-        CGFloat statusBarHeight = [self getStatusBarOffset];
-        CGFloat x = (CGFloat)[browserOptions.x floatValue];
-        CGFloat y = (CGFloat)[browserOptions.y floatValue];
-        CGFloat width = (CGFloat)[browserOptions.width floatValue] == 0 ? self.viewController.view.frame.size.width : [browserOptions.width floatValue];
-        CGFloat height = (CGFloat)[browserOptions.height floatValue] == 0 ? self.viewController.view.frame.size.height : [browserOptions.height floatValue];
-
-        y += statusBarHeight;
-        height -= statusBarHeight;
-        
-        self.inAppBrowserViewController.view.frame = CGRectMake(x, y, width, height);
-    });
+    NSString* options = [command argumentAtIndex:0 withDefault:@"" andClass:[NSString class]];
+    [self.inAppBrowserViewController changePosition:options];
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command{
@@ -1228,6 +1215,30 @@ BOOL isPosition = FALSE;
     
     self.view.frame = CGRectMake(x, y, width, height);
 }
+
+
+- (void)changePosition:(CDVInAppBrowserOptions*)options{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
+        
+        _browserOptions.x = browserOptions.x;
+        _browserOptions.y = browserOptions.y;
+        _browserOptions.width = browserOptions.width;
+        _browserOptions.height = browserOptions.height;
+        
+        CGFloat statusBarHeight = [self getStatusBarOffset];
+        CGFloat x = (CGFloat)[browserOptions.x floatValue];
+        CGFloat y = (CGFloat)[browserOptions.y floatValue];
+        CGFloat width = (CGFloat)[browserOptions.width floatValue] == 0 ? self.parentViewController.view.frame.size.width : [browserOptions.width floatValue];
+        CGFloat height = (CGFloat)[browserOptions.height floatValue] == 0 ? self.parentViewController.view.frame.size.height : [browserOptions.height floatValue];
+
+        y += statusBarHeight;
+        height -= statusBarHeight;
+        
+        self.view.frame = CGRectMake(x, y, width, height);
+    });
+}
+
 
 // Helper function to convert hex color string to UIColor
 // Assumes input like "#00FF00" (#RRGGBB).
