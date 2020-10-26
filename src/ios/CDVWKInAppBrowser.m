@@ -1173,18 +1173,6 @@ BOOL isPosition = FALSE;
     [super viewWillAppear:animated];
 }
 
-- (void)viewDidAppear:(BOOL)animated
-{
-    if(isPosition) {
-        [self rePositionViewsWithCustom];
-    }
-    else{
-        [self rePositionViews];
-    }
-    
-    [super viewDidAppear:animated];
-}
-
 //
 // On iOS 7 the status bar is part of the view's dimensions, therefore it's height has to be taken into account.
 // The height of it could be hardcoded as 20 pixels, but that would assume that the upcoming releases of iOS won't
