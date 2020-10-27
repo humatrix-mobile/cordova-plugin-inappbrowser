@@ -719,6 +719,7 @@ public class InAppBrowser extends CordovaPlugin {
 
           computedHeight = computedHeight - (getStatusBarHeight() + getNavigationBarHeight());
           bottom = webView.getView().getHeight() - computedHeight;
+          bottom = bottom - computedY;
 
           LOG.d("computedX" ,  Integer.toString(computedX));
           LOG.d("computedY" ,  Integer.toString(computedY));
