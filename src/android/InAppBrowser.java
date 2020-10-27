@@ -67,6 +67,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.view.ViewManager;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.Config;
@@ -571,8 +572,7 @@ public class InAppBrowser extends CordovaPlugin {
             FrameLayout containerView = (FrameLayout)cordova.getActivity().findViewById(containerViewId);
             if (containerView != null) {
               childView.destroy();
-              childView.removeAllViews();
-              containerView.removeAllViews();
+              ((ViewManager)containerView.getParent()).removeView(containerView);
             }
           }
         });
@@ -706,6 +706,7 @@ public class InAppBrowser extends CordovaPlugin {
           int y = Integer.parseInt(features.get(Y) == null ? "0" : features.get(Y));
           int width = Integer.parseInt(features.get(WIDTH) == null ? "0" : features.get(WIDTH));
           int height = Integer.parseInt(features.get(HEIGHT) == null ? "0" : features.get(HEIGHT));
+          int bottom = 0;
           DisplayMetrics metrics = cordova.getActivity().getResources().getDisplayMetrics();
 
           // offset
@@ -717,6 +718,7 @@ public class InAppBrowser extends CordovaPlugin {
           int computedHeight = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, height, metrics);
 
           computedHeight = computedHeight - (getStatusBarHeight() + getNavigationBarHeight());
+          bottom = webView.getView().getHeight() - computedHeight;
 
           LOG.d("computedX" ,  Integer.toString(computedX));
           LOG.d("computedY" ,  Integer.toString(computedY));
@@ -724,8 +726,8 @@ public class InAppBrowser extends CordovaPlugin {
           LOG.d("computedHeight" ,  Integer.toString(computedHeight));
 
 
-          FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(computedWidth, computedHeight);
-          layoutParams.setMargins(computedX, computedY, 0, 0);
+          FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(computedWidth, FrameLayout.LayoutParams.MATCH_PARENT);
+          layoutParams.setMargins(computedX, computedY, 0, bottom);
           containerView.setLayoutParams(layoutParams);
 
         }
@@ -910,31 +912,7 @@ public class InAppBrowser extends CordovaPlugin {
             cordova.getActivity().addContentView(containerView, containerLayoutParams);
           }
 
-          int x = Integer.parseInt(features.get(X) == null ? "0" : features.get(X));
-          int y = Integer.parseInt(features.get(Y) == null ? "0" : features.get(Y));
-          int width = Integer.parseInt(features.get(WIDTH) == null ? "0" : features.get(WIDTH));
-          int height = Integer.parseInt(features.get(HEIGHT) == null ? "0" : features.get(HEIGHT));
-          DisplayMetrics metrics = cordova.getActivity().getResources().getDisplayMetrics();
-
-          // offset
-          int computedX = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, x, metrics);
-          int computedY = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, y, metrics);
-
-          // size
-          int computedWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, width, metrics);
-          int computedHeight = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, height, metrics);
-
-          computedHeight = computedHeight - (getStatusBarHeight() + getNavigationBarHeight());
-
-          LOG.d("computedX" ,  Integer.toString(computedX));
-          LOG.d("computedY" ,  Integer.toString(computedY));
-          LOG.d("computedWidth" ,  Integer.toString(computedWidth));
-          LOG.d("computedHeight" ,  Integer.toString(computedHeight));
-
-
-          FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(computedWidth, computedHeight);
-          layoutParams.setMargins(computedX, computedY, 0, 0);
-          containerView.setLayoutParams(layoutParams);
+          changePosition(features);
 
         }else {
 
