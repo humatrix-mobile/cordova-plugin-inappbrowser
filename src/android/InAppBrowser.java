@@ -1689,7 +1689,9 @@ public class InAppBrowser extends CordovaPlugin {
          
     try {
       statusBarHeight = cordova.getActivity().getWindow().getDecorView().findViewById(android.R.id.statusBarBackground).getHeight();
-    }catch (Exception e){}
+    }catch (Exception e){
+      statusBarHeight = 0;
+    }
 
     return  statusBarHeight;
   }
@@ -1705,7 +1707,9 @@ public class InAppBrowser extends CordovaPlugin {
     try{
       navigationBarHeight = cordova.getActivity().getWindow().getDecorView().findViewById(android.R.id.navigationBarBackground).getHeight();
     }
-    catch (Exception e){}
+    catch (Exception e){
+      navigationBarHeight = 0;
+    }
 
     return navigationBarHeight;
   }
