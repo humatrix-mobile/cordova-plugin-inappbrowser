@@ -1236,6 +1236,13 @@ BOOL isPosition = FALSE;
         height -= statusBarHeight;
         
         self.view.frame = CGRectMake(x, y, width, height);
+     
+        if (x == width) {
+            self.view.hidden = TRUE;
+        }else {
+            self.view.hidden = FALSE;
+        }
+     
     });
 }
 
