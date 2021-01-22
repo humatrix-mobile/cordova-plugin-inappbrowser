@@ -21,7 +21,9 @@ package org.apache.cordova.inappbrowser;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterfac
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -128,6 +130,7 @@ public class InAppBrowser extends CordovaPlugin {
   private static final String WIDTH = "width";
   private static final String HEIGHT = "height";
   private static final String RENDERTYPE = "rendertype";
+  private static final String IGNORESSL = "ignoressl";
 
   private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR,X,Y,WIDTH,HEIGHT,RENDERTYPE);
 
@@ -161,6 +164,7 @@ public class InAppBrowser extends CordovaPlugin {
   private String[] allowedSchemes;
   private InAppBrowserClient currentClient;
   private static Boolean isPosition = false;
+  private Boolean isIgnoressl = false;
 
   /**
    * Executes the request and returns PluginResult.
@@ -180,6 +184,13 @@ public class InAppBrowser extends CordovaPlugin {
       }
       final String target = t;
       final HashMap<String, String> features = parseFeature(args.optString(2));
+           
+      if(features.get(IGNORESSL) != null &&  features.get(IGNORESSL).toUpperCase().contains("YES")){
+        isIgnoressl = true;
+      }
+      else {
+        isIgnoressl = false;
+      }
 
       LOG.d(LOG_TAG, "target = " + target);
 
@@ -1602,42 +1613,64 @@ public class InAppBrowser extends CordovaPlugin {
 
     @Override
         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-            super.onReceivedSslError(view, handler, error);
-            try {
-                JSONObject obj = new JSONObject();
-                obj.put("type", LOAD_ERROR_EVENT);
-                obj.put("url", error.getUrl());
-                obj.put("code", 0);
-                obj.put("sslerror", error.getPrimaryError());
-                String message;
-                switch (error.getPrimaryError()) {
-                case SslError.SSL_DATE_INVALID:
-                    message = "The date of the certificate is invalid";
-                    break;
-                case SslError.SSL_EXPIRED:
-                    message = "The certificate has expired";
-                    break;
-                case SslError.SSL_IDMISMATCH:
-                    message = "Hostname mismatch";
-                    break;
-                default:
-                case SslError.SSL_INVALID:
-                    message = "A generic error occurred";
-                    break;
-                case SslError.SSL_NOTYETVALID:
-                    message = "The certificate is not yet valid";
-                    break;
-                case SslError.SSL_UNTRUSTED:
-                    message = "The certificate authority is not trusted";
-                    break;
-                }
-                obj.put("message", message);
+             String message = "";
+             JSONObject obj = new JSONObject();
 
-                sendUpdate(obj, true, PluginResult.Status.ERROR);
-            } catch (JSONException ex) {
-                LOG.d(LOG_TAG, "Should never happen");
-            }
-            handler.cancel();
+             try {
+               obj.put("type", LOAD_ERROR_EVENT);
+               obj.put("url", error.getUrl());
+               obj.put("code", 0);
+               obj.put("sslerror", error.getPrimaryError());
+
+               switch (error.getPrimaryError()) {
+                 case SslError.SSL_DATE_INVALID:
+                   message = "The date of the certificate is invalid";
+                   break;
+                 case SslError.SSL_EXPIRED:
+                   message = "The certificate has expired";
+                   break;
+                 case SslError.SSL_IDMISMATCH:
+                   message = "Hostname mismatch";
+                   break;
+                 default:
+                 case SslError.SSL_INVALID:
+                   message = "A generic error occurred";
+                   break;
+                 case SslError.SSL_NOTYETVALID:
+                   message = "The certificate is not yet valid";
+                   break;
+                 case SslError.SSL_UNTRUSTED:
+                   message = "The certificate authority is not trusted";
+                   break;
+               }
+               obj.put("message", message);
+             } catch (JSONException ex) {
+               LOG.d(LOG_TAG, "Should never happen");
+             }
+
+             if(isIgnoressl){
+               final AlertDialog.Builder builder = new AlertDialog.Builder(cordova.getContext());
+               builder.setMessage(message);
+               builder.setPositiveButton("proceed", new DialogInterface.OnClickListener() {
+                 @Override
+                 public void onClick(DialogInterface dialog, int which) {
+                   handler.proceed();
+                 }
+               });
+               builder.setNegativeButton("cancel", new DialogInterface.OnClickListener() {
+                 @Override
+                 public void onClick(DialogInterface dialog, int which) {
+                   handler.cancel();
+                 }
+               });
+               final AlertDialog dialog = builder.create();
+               dialog.show();
+             }
+             else {
+               super.onReceivedSslError(view,handler,error);
+               sendUpdate(obj, true, PluginResult.Status.ERROR);
+               handler.cancel();
+             }
         }
 
     /**
