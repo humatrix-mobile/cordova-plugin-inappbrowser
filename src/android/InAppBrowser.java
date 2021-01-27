@@ -92,6 +92,13 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
+import android.webkit.ClientCertRequest;
+import android.security.KeyChain;
+import android.security.KeyChainAliasCallback;
+import android.security.KeyChainException;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
 
@@ -1611,6 +1618,51 @@ public class InAppBrowser extends CordovaPlugin {
       }
     }
 
+    @Override
+    public void onReceivedClientCertRequest(WebView view, ClientCertRequest request) {
+      try {
+        KeyChain.choosePrivateKeyAlias(
+          InAppBrowser.this.cordova.getActivity(), new KeyChainAliasCallback() {
+            @Override public void alias(String alias) {
+              if (alias == null) {
+                request.cancel();
+                return;
+              }
+
+              PrivateKey privateKey = null;
+              X509Certificate[] certificateChain = null;
+
+              try {
+                privateKey = KeyChain.getPrivateKey(webView.getContext(), alias);
+                certificateChain = KeyChain.getCertificateChain(webView.getContext(), alias);
+              } catch (InterruptedException e) {
+                request.ignore();
+                return;
+              } catch (KeyChainException e) {
+                request.ignore();
+                return;
+              }
+
+              if (privateKey == null || certificateChain == null) {
+                request.ignore();
+                return;
+              }
+
+              try{
+                request.proceed(privateKey, certificateChain);
+              } catch (Exception e){
+                request.ignore();
+                return;
+              }
+
+            }
+          }, request.getKeyTypes(), request.getPrincipals(), request.getHost(),
+          request.getPort(), null);
+      }catch (Exception e){
+        super.onReceivedClientCertRequest(view,request);
+      }
+    }
+         
     @Override
         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
              String message = "";
