@@ -815,6 +815,21 @@ BOOL isPosition = FALSE;
         self.webView.customUserAgent = [self settingForKey:@"OverrideUserAgent"];
     }
     
+    NSString* systemVersion = [[UIDevice currentDevice] systemVersion];
+    NSArray* systemVersionByDot = [systemVersion componentsSeparatedByString:@"."];
+    NSString* safariVersion = @"";
+
+    if([systemVersionByDot count] >= 2){
+        safariVersion = [@" Version/" stringByAppendingString: [systemVersionByDot firstObject]];
+        safariVersion = [safariVersion stringByAppendingString: @"."];
+        safariVersion = [safariVersion stringByAppendingString: systemVersionByDot[1]];
+    } else {
+        safariVersion = [@" Version/" stringByAppendingString: [systemVersionByDot firstObject]];
+    }
+     
+    NSString* originalUserAgent = [self.webView valueForKey:@"userAgent"];
+    self.webView.customUserAgent = [originalUserAgent stringByAppendingString:safariVersion];
+    
     self.webView.clearsContextBeforeDrawing = YES;
     self.webView.clipsToBounds = YES;
     self.webView.contentMode = UIViewContentModeScaleToFill;
